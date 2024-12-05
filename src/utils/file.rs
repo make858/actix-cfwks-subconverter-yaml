@@ -1,5 +1,6 @@
 use std::{fs::File, io::Read};
 
+#[allow(dead_code)]
 pub fn read_file_to_string(path: &str) -> String {
     let mut file = match File::open(path) {
         Ok(file) => file,

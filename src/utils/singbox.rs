@@ -1,3 +1,4 @@
+use crate::utils::config;
 use serde_json::json;
 use serde_yaml::Value;
 use std::collections::HashMap;
@@ -6,13 +7,16 @@ pub fn build_vless_singbox_config(
     yaml_value: &mut Value,
     remarks: String,
     address: &String,
-    port: u16,
+    port: u16
 ) -> (String, String) {
-    let uuid = crate::utils::config::get_uuid_value(yaml_value);
-    let servername = crate::utils::config::get_sni_or_servename_value(yaml_value);
-    let (path, host) = crate::utils::config::get_path_and_host_value(yaml_value);
-    let client_fingerprint = crate::utils::config::get_client_fingerprint_value(yaml_value);
-    let vless_singbox_config = r#"{
+    let uuid = config::get_field_value(yaml_value, "uuid");
+    let client_fingerprint = config::get_field_value(yaml_value, "client-fingerprint");
+
+    let servername = config::get_sni_or_servename_value(yaml_value);
+    let (path, host) = config::get_path_and_host_value(yaml_value);
+
+    let vless_singbox_config =
+        r#"{
         "type": "vless",
         "tag": "vless_tag",
         "server": "",
@@ -36,8 +40,9 @@ pub fn build_vless_singbox_config(
         }
     }"#;
 
-    let mut jsonvalue =
-        serde_json::from_str(vless_singbox_config).unwrap_or(serde_json::Value::Null);
+    let mut jsonvalue = serde_json
+        ::from_str(vless_singbox_config)
+        .unwrap_or(serde_json::Value::Null);
 
     let outer_updates = HashMap::from([
         ("tag", json!(remarks)),
@@ -52,7 +57,7 @@ pub fn build_vless_singbox_config(
         servername,
         client_fingerprint,
         path,
-        host,
+        host
     );
 
     let formatted_json_str = serde_json::to_string_pretty(&result).unwrap();
@@ -64,13 +69,16 @@ pub fn build_trojan_singbox_config(
     yaml_value: &mut Value,
     remarks: String,
     address: &String,
-    port: u16,
+    port: u16
 ) -> (String, String) {
-    let password = crate::utils::config::get_password_value(yaml_value);
-    let servername = crate::utils::config::get_sni_or_servename_value(yaml_value);
-    let (path, host) = crate::utils::config::get_path_and_host_value(yaml_value);
-    let client_fingerprint = crate::utils::config::get_client_fingerprint_value(yaml_value);
-    let singbox_trojan_config = r#"{
+    let password = config::get_field_value(yaml_value, "password");
+    let client_fingerprint = config::get_field_value(yaml_value, "client-fingerprint");
+
+    let servername = config::get_sni_or_servename_value(yaml_value);
+    let (path, host) = config::get_path_and_host_value(yaml_value);
+
+    let singbox_trojan_config =
+        r#"{
         "type": "trojan",
         "tag": "tag_name",
         "server": "",
@@ -94,8 +102,9 @@ pub fn build_trojan_singbox_config(
         }
     }"#;
 
-    let mut jsonvalue =
-        serde_json::from_str(singbox_trojan_config).unwrap_or(serde_json::Value::Null);
+    let mut jsonvalue = serde_json
+        ::from_str(singbox_trojan_config)
+        .unwrap_or(serde_json::Value::Null);
 
     let outer_updates = HashMap::from([
         ("tag", json!(remarks)),
@@ -110,7 +119,7 @@ pub fn build_trojan_singbox_config(
         servername,
         client_fingerprint,
         path,
-        host,
+        host
     );
 
     let formatted_json_str = serde_json::to_string_pretty(&result).unwrap();
@@ -124,7 +133,7 @@ fn update_singbox_json_value(
     servername: String,
     client_fingerprint: String,
     path: String,
-    host: String,
+    host: String
 ) -> serde_json::Value {
     // 修改jsonvalue的外层字段（多个字段）
     for (key, new_value) in outer_updates {
@@ -160,5 +169,6 @@ fn update_singbox_json_value(
             }
         }
     }
+
     jsonvalue.clone()
 }
