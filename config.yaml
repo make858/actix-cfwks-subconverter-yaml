@@ -1,5 +1,7 @@
 # 该配置本来就是clash的节点配置
 
+proxies:
+
 # 账号1：vless+ws
 - type: vless
   name: ""
@@ -51,4 +53,5 @@
     path: / # 修改这里
     headers:
       Host: trojan.pages.dev # 修改这里
+
 # 后面可以继续模仿前面的配置，添加
