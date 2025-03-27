@@ -10,7 +10,7 @@ use utils::{ build, config, qrcode };
 
 const SPECIFICATION: &str = include_str!("../使用说明.txt");
 
-/// 基于HTTP传输协议的vless+ws[+tls]、trojan+ws[+tls]转换v2ray、sing-box、clash订阅工具!
+/// 基于HTTP传输协议的vless+ws[+tls]、trojan+ws[+tls]、ss-v2ray+tls转换v2ray、sing-box、clash订阅工具!
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -39,6 +39,7 @@ pub struct Params {
     pub proxy_type: String,
     pub tls_mode: String,
     pub data_source: String,
+    pub page: usize,
 }
 
 lazy_static! {
@@ -79,7 +80,7 @@ async fn subconverter(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
     let query_str = req.query_string();
     let params: Vec<(String, String)> = from_str(&query_str).expect("Failed to parse query string");
 
-    let mut params_control = Params {
+    let mut uri_params = Params {
         target: data.args.target.to_string(), // 由cli参数中传递进来，默认转换为v2ray，可以在订阅链接中修改
         node_count: 300, // 节点数量，这里默认300，实际不一定是这个数字
         default_port: 0, // 默认端口，没有在数据文件读取到端口才启用它，0为随机端口
@@ -89,76 +90,54 @@ async fn subconverter(req: HttpRequest, data: web::Data<AppState>) -> impl Respo
         proxy_type: "all".to_string(), // 不区分代理的类型（vles、trojan）
         tls_mode: "all".to_string(), // 选择哪些端口？true/1是选择TLS端口，false/0选择非TLS的端口，其它就不区分
         data_source: "./data".to_string(), // 默认数据文件路径
+        page: 1,
     };
 
     // 获取url的参数
     for (key, value) in params {
         if key.to_lowercase() == "target" {
-            params_control.target = value.to_string().to_string();
-        } else if
-            key.to_lowercase() == "n" ||
-            key.to_lowercase() == "nodesize" ||
-            key.to_lowercase() == "nodecount"
-        {
-            params_control.node_count = value.parse::<usize>().unwrap_or(params_control.node_count);
-        } else if key.to_lowercase() == "dport" || key.to_lowercase() == "defaultport" {
-            if let Ok(input_port) = value.parse::<u16>() {
-                if (80..65535).contains(&input_port) {
-                    params_control.default_port = input_port;
+            uri_params.target = value.to_string().to_string();
+        } else if vec!["n", "nodesize", "nodecount"].contains(&key.to_lowercase().as_str()) {
+            uri_params.node_count = value.parse::<usize>().unwrap_or(uri_params.node_count);
+        } else if vec!["dport", "defaultport"].contains(&key.to_lowercase().as_str()) {
+            if let Ok(port) = value.parse::<u16>() {
+                if (80..65535).contains(&port) {
+                    uri_params.default_port = port;
                 }
             }
-        } else if key.to_lowercase() == "tls" || key.to_lowercase() == "tlsmode" {
+        } else if vec!["id", "userid"].contains(&key.to_lowercase().as_str()) {
+            if let Ok(1..=255) = value.parse::<u8>() {
+                uri_params.userid = value.parse::<u8>().unwrap();
+            }
+        } else if key.to_lowercase() == "page" {
+            uri_params.page = value.parse().unwrap_or(uri_params.page).max(1);
+        } else if key.to_lowercase() == "template" {
+            uri_params.template = value.parse::<bool>().unwrap_or(true);
+        } else if vec!["type", "proxy", "proxytype"].contains(&key.to_lowercase().as_str()) {
+            uri_params.proxy_type = value.to_string();
+        } else if vec!["column", "columnname"].contains(&key.to_lowercase().as_str()) {
+            uri_params.column_name = value.to_string(); // 以哪个列的字段名作为前缀？[colo,loc,region,city]
+        } else if vec!["source", "datasource"].contains(&key.to_lowercase().as_str()) {
+            uri_params.data_source = value.to_string(); // 数据文件路径，支持相对路径和绝对路径
+        } else if vec!["tls", "mode", "tls_mode"].contains(&key.to_lowercase().as_str()) {
             match value.to_string().to_lowercase().as_str() {
                 "1" | "true" => {
-                    params_control.tls_mode = "true".to_string();
+                    uri_params.tls_mode = "true".to_string();
                 }
                 "0" | "false" => {
-                    params_control.tls_mode = "false".to_string();
+                    uri_params.tls_mode = "false".to_string();
                 }
                 _ => {}
             }
-        } else if
-            key.to_lowercase() == "type" ||
-            key.to_lowercase() == "proxy" ||
-            key.to_lowercase() == "proxytype"
-        {
-            // 选择那种协议的配置节点？是vless还是trojan
-            match value.to_string().to_lowercase().as_str() {
-                "vless" => {
-                    params_control.proxy_type = "vless".to_string();
-                }
-                "trojan" => {
-                    params_control.proxy_type = "trojan".to_string();
-                }
-                _ => {}
-            }
-        } else if key.to_lowercase() == "id" || key.to_lowercase() == "userid" {
-            if let Ok(1..=255) = value.parse::<u8>() {
-                params_control.userid = value.parse::<u8>().unwrap();
-            }
-        } else if key.to_lowercase() == "template" {
-            params_control.template = value.parse::<bool>().unwrap_or(true);
-        } else if key.to_lowercase() == "column" || key.to_lowercase() == "columnname" {
-            // 以哪个列的字段名作为前缀？[colo,loc,region,city]
-            params_control.column_name = value.to_string();
-        } else if key.to_lowercase() == "source" || key.to_lowercase() == "datasource" {
-            params_control.data_source = value.to_string(); // 数据文件路径，支持相对路径和绝对路径
         }
     }
 
-    // 限制节点数量
-    if params_control.target == "singbox" && params_control.node_count > 150 {
-        params_control.node_count = 50;
-    } else if params_control.target == "clash" && params_control.node_count > 150 {
-        params_control.node_count = 100;
-    }
-
-    let proxies_value: YamlValue = config::get_yaml_proxies(&CONFIG_FILE);
+    let proxies_value: YamlValue = config::parse_file_to_yamlvlaue(&CONFIG_FILE);
 
     // 分拣数据以及创建订阅内容
     let html_body = build::sorting_data_and_build_subscribe(
         proxies_value,
-        params_control.clone(),
+        uri_params.clone(),
         &CLASH_TEMPLATE,
         &SINGBOX_TEMPLATE
     );
