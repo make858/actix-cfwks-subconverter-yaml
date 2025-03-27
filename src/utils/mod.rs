@@ -2,7 +2,6 @@ pub mod clash;
 pub mod config;
 pub mod convert;
 pub mod file_data;
-pub mod file;
 pub mod net_data;
 pub mod qrcode;
 pub mod singbox;
