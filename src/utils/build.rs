@@ -1,10 +1,14 @@
+use super::{
+    convert,
+    file_data::{self, MyData},
+    net_data,
+};
 use crate::Params;
-use super::{ convert, file_data::{ self, MyData }, net_data };
 
-use regex::Regex;
-use serde_yaml::Value as YamlValue;
-use serde_json::{ json, Value as JsonValue };
 use lazy_static::lazy_static;
+use regex::Regex;
+use serde_json::{json, Value as JsonValue};
+use serde_yaml::Value as YamlValue;
 
 lazy_static! {
     // 匹配包含 "name:" 的 "- {}" 字符串，应用到clash相关代码中
@@ -29,15 +33,15 @@ pub fn get_vec_data(uri_params: Params) -> Vec<Vec<MyData>> {
             &uri_params.column_name,
             uri_params.default_port,
             max_line,
-            trimmed_quotes_path
+            trimmed_quotes_path,
         )
     } else {
         // 传入的是本地文件路径，就从本地获取数据
         file_data::process_files_data(
             &uri_params.column_name, // 获取指定字段的数据作为节点别名的前缀
             uri_params.default_port, // 没有找到端口的情况，就使用它
-            max_line, // 获取指定数量的数据就返回
-            trimmed_quotes_path // 指定数据源所在文件夹路径或文件路径
+            max_line,                // 获取指定数量的数据就返回
+            trimmed_quotes_path,     // 指定数据源所在文件夹路径或文件路径
         )
     };
 
@@ -47,7 +51,7 @@ pub fn get_vec_data(uri_params: Params) -> Vec<Vec<MyData>> {
         // 根据TLS模式是否开启，反向剔除不要端口的数据
         let filter_ports = match uri_params.tls_mode.as_str() {
             "true" | "1" | "all" => HTTP_PORTS.to_vec(), // 过滤掉非TLS模式的端口
-            "false" | "0" => HTTPS_PORTS.to_vec(), // 过滤掉TLS模式的端口
+            "false" | "0" => HTTPS_PORTS.to_vec(),       // 过滤掉TLS模式的端口
             _ => HTTP_PORTS.to_vec(),
         };
         let filtered_data: Vec<MyData> = my_datas
@@ -67,18 +71,10 @@ pub fn get_vec_data(uri_params: Params) -> Vec<Vec<MyData>> {
 
         // 定义每页的最大长度（元素个数），主要限制singbox、clash配置文件最多节点数
         let page_size = match uri_params.target.as_str() {
-            "singbox" => {
-                match (1..151).contains(&uri_params.node_count) {
-                    true => uri_params.node_count,
-                    false => 50,
-                }
-            }
-            "clash" => {
-                match (1..151).contains(&uri_params.node_count) {
-                    true => uri_params.node_count,
-                    false => 100,
-                }
-            }
+            "singbox" | "clash" => match (1..151).contains(&uri_params.node_count) {
+                true => uri_params.node_count,
+                false => 50,
+            },
             _ => uri_params.node_count,
         };
 
@@ -98,7 +94,7 @@ pub fn sorting_data_and_build_subscribe(
     all_proxies_yaml: YamlValue,
     uri_params: Params,
     clash_template: &str,
-    singbox_template: &str
+    singbox_template: &str,
 ) -> String {
     let paginated_data = get_vec_data(uri_params.clone());
 
@@ -124,15 +120,16 @@ pub fn sorting_data_and_build_subscribe(
                     uri_params.target.clone(),
                     uri_params.proxy_type.clone(),
                     uri_params.tls_mode.clone(),
-                    uri_params.userid.clone()
+                    uri_params.userid.clone(),
+                    &HTTP_PORTS,
+                    &HTTPS_PORTS,
                 );
                 if !node.is_empty() && !nodes_vec.contains(&node) {
                     nodes_vec.push(node);
                 }
-                if
-                    !proxy_name.is_empty() &&
-                    vec!["clash", "singbox"].contains(&uri_params.target.as_str()) &&
-                    !proxy_name_vec.contains(&proxy_name)
+                if !proxy_name.is_empty()
+                    && vec!["clash", "singbox"].contains(&uri_params.target.as_str())
+                    && !proxy_name_vec.contains(&proxy_name)
                 {
                     proxy_name_vec.push(proxy_name);
                 }
@@ -150,7 +147,7 @@ pub fn sorting_data_and_build_subscribe(
                 proxy_name_vec,
                 nodes_vec,
                 clash_template,
-                singbox_template
+                singbox_template,
             );
 
             full_subscribe
@@ -169,7 +166,7 @@ fn build_full_subscribe(
     proxy_name_vec: Vec<String>,
     nodes_vec: Vec<String>,
     clash_template: &str,
-    singbox_template: &str
+    singbox_template: &str,
 ) -> String {
     let mut html_body = String::new();
     match target.as_str() {
@@ -180,18 +177,17 @@ fn build_full_subscribe(
                     let content: String = std::fs::read_to_string(clash_template).unwrap();
                     // 替换模板文件中的内容
                     if !proxy_name_vec.is_empty() && !content.is_empty() {
-                        html_body = PROXYIES_NAME_REGEX.replace_all(
-                            &content,
-                            &nodes_vec.join("\n")
-                        ).replace(
-                            "      - 127.0.0.1:1080",
-                            &proxy_name_vec
-                                .clone()
-                                .iter_mut()
-                                .map(|name| format!("      - {}", name))
-                                .collect::<Vec<String>>()
-                                .join("\n")
-                        );
+                        html_body = PROXYIES_NAME_REGEX
+                            .replace_all(&content, &nodes_vec.join("\n"))
+                            .replace(
+                                "      - 127.0.0.1:1080",
+                                &proxy_name_vec
+                                    .clone()
+                                    .iter_mut()
+                                    .map(|name| format!("      - {}", name))
+                                    .collect::<Vec<String>>()
+                                    .join("\n"),
+                            );
                     }
                 }
                 false => {
@@ -204,18 +200,16 @@ fn build_full_subscribe(
                 true => {
                     let content = std::fs::read_to_string(singbox_template).unwrap();
                     // 读取模板文件以及解析为JSON
-                    let singbox_json: JsonValue = serde_json
-                        ::from_str(&content)
-                        .unwrap_or_default();
+                    let singbox_json: JsonValue =
+                        serde_json::from_str(&content).unwrap_or_default();
                     // 运用插入/retain()等操作修改模板文件的内容
                     if !proxy_name_vec.is_empty() && singbox_json.is_object() {
                         let mut singbox_config = singbox_json.clone();
                         if let Some(outbounds) = singbox_config["outbounds"].as_array_mut() {
                             // 将节点插入到outbounds中
                             for json_str in &nodes_vec {
-                                let parsed_json = serde_json
-                                    ::from_str(json_str)
-                                    .expect("Failed to parse JSON");
+                                let parsed_json =
+                                    serde_json::from_str(json_str).expect("Failed to parse JSON");
                                 outbounds.insert(2, parsed_json); // 插入到第3个位置
                             }
                             outbounds.iter_mut().for_each(|item| {
@@ -224,14 +218,13 @@ fn build_full_subscribe(
                                         .and_then(JsonValue::as_array_mut)
                                         .map(|inside_outbounds| {
                                             // 使用 retain 方法来过滤掉 "{all}"
-                                            inside_outbounds.retain(
-                                                |x| x.as_str() != Some("{all}")
-                                            );
+                                            inside_outbounds
+                                                .retain(|x| x.as_str() != Some("{all}"));
                                             // 添加 proxy_name 到内层的 outbounds 中
                                             inside_outbounds.extend(
                                                 proxy_name_vec
                                                     .iter()
-                                                    .map(|s| JsonValue::String(s.clone()))
+                                                    .map(|s| JsonValue::String(s.clone())),
                                             );
                                         });
                                 }
