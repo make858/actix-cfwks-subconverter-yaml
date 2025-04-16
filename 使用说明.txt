@@ -105,12 +105,12 @@ http://127.0.0.1:10111/sub?target=clash&source=???
 
 特别说明：
 
-1、nodesize（nodecount）：您需要的节点数量。是从数据源所在路径中，读取的所有数据中
+1、n（nodesize、nodecount）：您需要的节点数量。是从数据源所在路径中，读取的所有数据中
 注意： 
   (1)如果文件内的txt、csv文件比较多，读取第一个文件的个数小于nodesize，自然要读取下一个文件的数据，
      就会出现，哪个文件的数据在前，哪个文件数据在后的问题，这个跟文件的默认排序有关；
   (2)不是从读取的全部数据中，随机nodesize个数据，而是按照读取到的数据先后顺序
-  (3)默认值：v2ray默认是300个节点；sing-box默认是50个节点，最大150个节点；clash默认100个节点，最大150个节点。
+  (3)默认值：v2ray默认是300个节点；sing-box、clash默认50个节点，最大150个节点。
   (4)可能因TLS模式、端口和workers.dev的节点冲突，多次都随机选择它们，出现冲突，不符合的要求，多次丢弃，导致生成的节点少（不是因IP地址数据少导致）。
 2、type（proxytype）：选择什么协议的节点？只能选择vless、trojan，这里指您在配置文件中，存放的节点类型，符合要求的，才使用它。
 3、id（userid）：指定使用配置文件的哪个节点，生成v2ray链接或sing-box、clash配置文件？它的值是虚构的，是根据配置文件的数组下标+1来计算的。
@@ -142,5 +142,5 @@ http://127.0.0.1:10111/sub?target=clash&source=???
 温馨提示：
 
   1、使用 Cloudflare workers 搭建的 vless/trojan/ss-v2ray 节点，转换为 singbox/clash.mate/mihomo 订阅使用，PROXYIP 地址可能会丢失，跟没有设置 PROXYIP 效果一样，也就是不能使用它访问一些地区封锁的网站，比如：ChatGPT、Netflix 等。
-  2、ss-v2ray+tls+websocket，订阅链接(v2ray)只能在支持v2ray插件扩展的代理客户端中使用，直接复制或在v2rayN中订阅无法添加使用的，经测试可以黏贴到NekoBox中使用。
+  2、ss-v2ray+tls+websocket，订阅链接(v2ray)只能在支持v2ray-plugin扩展的代理客户端中使用，直接复制或在v2rayN中订阅无法添加使用的，经测试可以黏贴到NekoBox中使用。
       例如：ss://bm9uZTowMTk1YzQ3Ni02M2Y4LTcyMzItYWM0Mi0wYWMxZWFhYmU5MzQ=@104.19.177.137:2096?plugin=v2ray-plugin;tls;mux%3D0;mode%3Dwebsocket;path%3D/192.168.1.1-443;host%3Dss1.pages.dev#⑤|104.19.177.137:2096
