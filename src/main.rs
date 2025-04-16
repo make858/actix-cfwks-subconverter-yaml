@@ -10,7 +10,7 @@ use utils::{ build, config, qrcode };
 
 const SPECIFICATION: &str = include_str!("../使用说明.txt");
 
-/// 基于HTTP传输协议的vless+ws[+tls]、trojan+ws[+tls]、ss-v2ray+tls转换v2ray、sing-box、clash订阅工具!
+/// 基于HTTP传输协议的vless+ws[+tls]、trojan+ws[+tls]、ss-v2ray[+tls]转换v2ray、sing-box、clash订阅工具!
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
