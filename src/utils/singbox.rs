@@ -1,5 +1,5 @@
-use super::config::{ get_yaml_value, get_yaml_value_with_fallback };
-use serde_json::{ json, Value as JsonValue };
+use super::config::{get_yaml_value, get_yaml_value_with_fallback};
+use serde_json::{json, Value as JsonValue};
 use serde_yaml::Value as YamlValue;
 use std::collections::HashMap;
 
@@ -8,34 +8,22 @@ pub fn build_singbox_config_json(
     yaml_value: &mut YamlValue,
     remarks: String,
     server_address: String,
-    server_port: u16
+    server_port: u16,
 ) -> (String, String) {
     match proxy_type {
         "vless" => {
-            let (remarks_name, vless_singbox) = build_vless_singbox_config(
-                yaml_value,
-                remarks,
-                server_address,
-                server_port
-            );
+            let (remarks_name, vless_singbox) =
+                build_vless_singbox_config(yaml_value, remarks, server_address, server_port);
             return (remarks_name, vless_singbox);
         }
         "trojan" => {
-            let (remarks_name, trojan_singbox) = build_trojan_singbox_config(
-                yaml_value,
-                remarks,
-                server_address,
-                server_port
-            );
+            let (remarks_name, trojan_singbox) =
+                build_trojan_singbox_config(yaml_value, remarks, server_address, server_port);
             return (remarks_name, trojan_singbox);
         }
         "ss" => {
-            let (remarks_name, ss_singbox) = build_ss_singbox_config(
-                yaml_value,
-                remarks,
-                server_address,
-                server_port
-            );
+            let (remarks_name, ss_singbox) =
+                build_ss_singbox_config(yaml_value, remarks, server_address, server_port);
             return (remarks_name, ss_singbox);
         }
         _ => {}
@@ -48,7 +36,7 @@ fn build_ss_singbox_config(
     yaml_value: &mut YamlValue,
     remarks: String,
     server_address: String,
-    server_port: u16
+    server_port: u16,
 ) -> (String, String) {
     let path = get_yaml_value(&yaml_value, &["plugin-opts", "path"])
         .and_then(|v| v.as_str())
@@ -59,10 +47,20 @@ fn build_ss_singbox_config(
     let password = get_yaml_value(&yaml_value, &["password"])
         .and_then(|v| v.as_str())
         .unwrap_or_default();
-    let plugin_value = format!("tls;mux=0;mode=websocket;path={};host={}", path, host);
+    let tls_val = get_yaml_value(&yaml_value, &["plugin-opts", "tls"])
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
 
-    let singbox_ss_json_str =
-        r#"{
+    let insert_tls_str = match tls_val {
+        true => format!("tls;"),
+        false => format!(""),
+    };
+    let plugin_value = format!(
+        "{}mux=0;mode=websocket;path={};host={}",
+        insert_tls_str, path, host
+    );
+
+    let singbox_ss_json_str = r#"{
         "type": "shadowsocks",
         "tag": "",
         "server": "",
@@ -90,7 +88,7 @@ fn build_vless_singbox_config(
     yaml_value: &mut YamlValue,
     remarks: String,
     server_address: String,
-    server_port: u16
+    server_port: u16,
 ) -> (String, String) {
     let uuid = get_yaml_value(&yaml_value, &["uuid"])
         .and_then(|v| v.as_str())
@@ -105,13 +103,10 @@ fn build_vless_singbox_config(
         .and_then(|v| v.as_str())
         .unwrap_or_default();
 
-    let tls_server_name = get_yaml_value_with_fallback(
-        &yaml_value,
-        &["servername", "sni"]
-    ).unwrap_or_default();
+    let tls_server_name =
+        get_yaml_value_with_fallback(&yaml_value, &["servername", "sni"]).unwrap_or_default();
 
-    let vless_singbox_config =
-        r#"{
+    let vless_singbox_config = r#"{
         "type": "vless",
         "tag": "vless_tag",
         "server": "",
@@ -150,7 +145,7 @@ fn build_vless_singbox_config(
         host.to_string(),
         path.to_string(),
         tls_server_name.to_string(),
-        client_fingerprint.to_string()
+        client_fingerprint.to_string(),
     );
 
     let json_string = serde_json::to_string_pretty(&result).unwrap_or_default();
@@ -162,7 +157,7 @@ fn build_trojan_singbox_config(
     yaml_value: &mut YamlValue,
     remarks: String,
     server_address: String,
-    server_port: u16
+    server_port: u16,
 ) -> (String, String) {
     let password = get_yaml_value(&yaml_value, &["password"])
         .and_then(|v| v.as_str())
@@ -177,13 +172,10 @@ fn build_trojan_singbox_config(
         .and_then(|v| v.as_str())
         .unwrap_or_default();
 
-    let tls_server_name = get_yaml_value_with_fallback(
-        &yaml_value,
-        &["sni", "servername"]
-    ).unwrap_or_default();
+    let tls_server_name =
+        get_yaml_value_with_fallback(&yaml_value, &["sni", "servername"]).unwrap_or_default();
 
-    let trojan_singbox_config =
-        r#"{
+    let trojan_singbox_config = r#"{
         "type": "trojan",
         "tag": "tag_name",
         "server": "",
@@ -222,7 +214,7 @@ fn build_trojan_singbox_config(
         host.to_string(),
         path.to_string(),
         tls_server_name.to_string(),
-        client_fingerprint.to_string()
+        client_fingerprint.to_string(),
     );
 
     let json_string = serde_json::to_string_pretty(&result).unwrap_or_default();
@@ -236,7 +228,7 @@ fn update_singbox_json_value(
     host: String,
     path: String,
     tls_server_name: String,
-    client_fingerprint: String
+    client_fingerprint: String,
 ) -> JsonValue {
     // 修改jsonvalue的外层字段（多个字段）
     for (key, new_value) in outer_updates {
